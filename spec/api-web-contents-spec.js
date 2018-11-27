@@ -39,6 +39,44 @@ describe('webContents module', () => {
 
   afterEach(() => closeWindow(w).then(() => { w = null }))
 
+  describe('loadURL() promise API', () => {
+    it('resolves when done loading', async () => {
+      await w.loadURL('about:blank')
+      // assert: no timeout, no exception.
+    })
+
+    it('resolves when done loading a file URL', async () => {
+      await w.loadFile(path.join(fixtures, 'pages', 'base-page.html'))
+      // assert: no timeout, no exception.
+    })
+
+    it('rejects when failing to load a file URL', async () => {
+      let err
+      try {
+        await w.loadURL('file:non-existent')
+      } catch (e) {
+        err = e
+      }
+      expect(err).not.to.be.null()
+      expect(err.code).to.eql('ERR_FILE_NOT_FOUND')
+      expect(err.errno).to.eql(-6)
+      expect(err.validatedURL).to.eql('file:///non-existent')
+    })
+
+    it('rejects when loading fails due to DNS not resolved', async () => {
+      let err
+      try {
+        await w.loadURL('https://err.name.not.resolved')
+      } catch (e) {
+        err = e
+      }
+      expect(err).not.to.be.undefined()
+      expect(err.code).to.eql('ERR_NAME_NOT_RESOLVED')
+      expect(err.errno).to.eql(-105)
+      expect(err.validatedURL).to.eql('https://err.name.not.resolved/')
+    })
+  })
+
   describe('getAllWebContents() API', () => {
     it('returns an array of web contents', (done) => {
       w.webContents.on('devtools-opened', () => {
@@ -879,8 +917,7 @@ describe('webContents module', () => {
         }
       })
 
-      w.loadURL('about:blank')
-      await emittedOnce(w.webContents, 'did-finish-load')
+      await w.loadURL('about:blank')
 
       const filePath = path.join(remote.app.getPath('temp'), 'test.heapsnapshot')
 
@@ -910,8 +947,7 @@ describe('webContents module', () => {
         }
       })
 
-      w.loadURL('about:blank')
-      await emittedOnce(w.webContents, 'did-finish-load')
+      await w.loadURL('about:blank')
 
       const promise = w.webContents.takeHeapSnapshot('')
       return expect(promise).to.be.eventually.rejectedWith(Error, 'takeHeapSnapshot failed')
